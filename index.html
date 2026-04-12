@@ -142,40 +142,43 @@
     // Correct haircut
     const CORRECT_HAIRCUT = "Textured Low Taper Fade";
 
-    // Countdown to Next Sunday at 12 PM
-    function getNextSundayNoon() {
-      const now = new Date();
-      const nextSunday = new Date(now);
-      nextSunday.setDate(now.getDate() + (7 - now.getDay()) % 7);
-      nextSunday.setHours(12, 0, 0, 0);
-
-      if (now.getDay() === 0 && now.getHours() >= 12) {
-        nextSunday.setDate(nextSunday.getDate() + 7);
-      }
-      return nextSunday;
+    // Countdown to 4/19/26
+   function updateCountdown() {
+    const launchDate = new Date("April 19, 2026 12:00:00");
+  
+    const now = new Date();
+    const timeRemaining = launchDate - now;
+  
+    const countdownElement = document.getElementById("countdown");
+  
+    // If the launch time has passed, display "Now Live"
+    if (timeRemaining <= 0) {
+      countdownElement.textContent = "🎉Now Live!🎉";
+      return;
     }
+  
+    // Calculate time units
+    const days = Math.floor(timeRemaining / (1000 * 60 * 60 * 24));
+    const hours = Math.floor(
+      (timeRemaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+    );
+    const minutes = Math.floor(
+      (timeRemaining % (1000 * 60 * 60)) / (1000 * 60)
+    );
+    const seconds = Math.floor(
+      (timeRemaining % (1000 * 60)) / 1000
+    );
+  
+    // Display the countdown
+    countdownElement.textContent =
+      `${days}d ${hours}h ${minutes}m ${seconds}s`;
+  }
+  
+  // Update every second
+  setInterval(updateCountdown, 1000);
 
-    const launchDate = getNextSundayNoon();
-
-    function updateCountdown() {
-      const diff = launchDate - new Date();
-      if (diff <= 0) {
-        document.getElementById("countdown").innerHTML = "🎉 Now Live!";
-        return;
-      }
-
-      const d = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
-      const m = Math.floor((diff / (1000 * 60)) % 60);
-      const s = Math.floor((diff / 1000) % 60);
-
-      document.getElementById("countdown").innerHTML =
-        `${d}d ${h}h ${m}m ${s}s`;
-    }
-
-    setInterval(updateCountdown, 1000);
-    updateCountdown();
-
+// Initial call to avoid 1-second delay
+updateCountdown();
     // Sign Up
     function signUp() {
       const username = document.getElementById("username").value.trim();
