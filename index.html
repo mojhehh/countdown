@@ -45,14 +45,14 @@
       margin-top: 20px;
     }
 
-       input, select, button {
+    input, select, button {
       width: 100%;
       padding: 12px;
       margin-top: 10px;
       border-radius: 8px;
       border: none;
       font-size: 1em;
-      box-sizing: border-box; 
+      box-sizing: border-box;
     }
 
     button {
@@ -74,6 +74,11 @@
       margin-top: 10px;
       font-weight: bold;
     }
+
+    .subheader {
+      color: gold;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
@@ -94,10 +99,10 @@
 
   <!-- Guessing Game -->
   <div class="card hidden" id="gameCard">
+    <h3 class="subheader">Pre Release Minigame</h3>
     <h2>Guess Andrew's Haircut</h2>
-    <p>One guess per day. Correct guesses get a chance to win <i>$10, 10 Milliion Casino Credits</i>, and a <i>Special Title</i>!</p>
+    <p>One guess per day. Correct guesses get a chance to win <i>$10, 10 Million Casino Credits</i>, and a <i>Special Title</i>!</p>
 
-    <!-- First and Last Name collected at guess time -->
     <input type="text" id="firstNameGuess" placeholder="First Name">
     <input type="text" id="lastNameGuess" placeholder="Last Name">
 
@@ -115,16 +120,22 @@
   </div>
 
   <script>
-    // Firebase configuration
+    // Firebase configuration (ensure these match your Firebase console)
     const firebaseConfig = {
       apiKey: "AIzaSyBHKfcbCdk78-PCm5ry_qHeyWhDVrm9sM8",
       authDomain: "casino-royale-2.firebaseapp.com",
       projectId: "casino-royale-2",
+      storageBucket: "casino-royale-2.appspot.com",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
     };
 
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
+
+    // Correct haircut
+    const CORRECT_HAIRCUT = "Textured Low Taper Fade";
 
     // Countdown to Next Sunday at 12 PM
     function getNextSundayNoon() {
@@ -160,7 +171,7 @@
     setInterval(updateCountdown, 1000);
     updateCountdown();
 
-    // Authentication (Username + Email + Password)
+    // Sign Up
     function signUp() {
       const username = document.getElementById("username").value.trim();
       const email = document.getElementById("email").value.trim();
@@ -173,21 +184,35 @@
       }
 
       auth.createUserWithEmailAndPassword(email, password)
-        .then((cred) => {
-          return db.collection("users").doc(cred.user.uid).set({
+        .then(async (cred) => {
+          await cred.user.updateProfile({ displayName: username });
+
+          await db.collection("users").doc(cred.user.uid).set({
             username: username,
-            email: email
+            email: email,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
           });
+
+          msg.textContent = "Account created successfully!";
         })
         .catch(err => msg.textContent = err.message);
     }
 
+    // Login
     function login() {
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value;
       const msg = document.getElementById("authMessage");
 
+      if (!email || !password) {
+        msg.textContent = "Please enter email and password.";
+        return;
+      }
+
       auth.signInWithEmailAndPassword(email, password)
+        .then(() => {
+          msg.textContent = "Logged in successfully!";
+        })
         .catch(err => msg.textContent = err.message);
     }
 
@@ -202,81 +227,75 @@
     });
 
     // Submit Guess (One Per Day)
-   async function submitGuess() {
-  const user = auth.currentUser;
-  const guess = document.getElementById("guess").value;
-  const firstName = document.getElementById("firstNameGuess").value.trim();
-  const lastName = document.getElementById("lastNameGuess").value.trim();
-  const msg = document.getElementById("gameMessage");
+    async function submitGuess() {
+      const user = auth.currentUser;
+      const guess = document.getElementById("guess").value;
+      const firstName = document.getElementById("firstNameGuess").value.trim();
+      const lastName = document.getElementById("lastNameGuess").value.trim();
+      const msg = document.getElementById("gameMessage");
 
-  if (!user) {
-    msg.textContent = "You must be logged in to submit a guess.";
-    return;
-  }
+      if (!user) {
+        msg.textContent = "You must be logged in to submit a guess.";
+        return;
+      }
 
-  if (!firstName || !lastName || !guess) {
-    msg.textContent = "Please fill in all fields.";
-    return;
-  }
+      if (!firstName || !lastName || !guess) {
+        msg.textContent = "Please fill in all fields.";
+        return;
+      }
 
-  try {
-    // Retrieve username and email from Firestore
-    const userDoc = await db.collection("users").doc(user.uid).get();
-    const userData = userDoc.data();
+      try {
+        const userDoc = await db.collection("users").doc(user.uid).get();
+        const userData = userDoc.data();
 
-    const today = new Date().toDateString();
-    const guessRef = db.collection("guesses").doc(user.uid);
+        const today = new Date().toISOString().split("T")[0];
+        const guessId = `${user.uid}_${today}`;
+        const guessRef = db.collection("guesses").doc(guessId);
 
-    // Check if the user has already guessed today
-    const existing = await guessRef.get();
-    if (existing.exists && existing.data().date === today) {
-      msg.textContent = "You have already guessed today.";
-      return;
-    }
+        if ((await guessRef.get()).exists) {
+          msg.textContent = "You have already guessed today.";
+          return;
+        }
 
-    // Save the guess along with identification details
-    await guessRef.set({
-      firstName: firstName,
-      lastName: lastName,
-      username: userData?.username || "",
-      email: userData?.email || user.email,
-      guess: guess,
-      date: today,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    });
+        const isCorrect = guess === CORRECT_HAIRCUT ? "yes" : "no";
 
-    // Optional: Send to Google Sheets
-    await fetch("https://script.google.com/macros/s/AKfycbxxUjuotRFXsDUpBnaxqQak_S6W1cMXeD85IXlRia9_Wq0KNPIEDY0GXx6RAUGkYite/exec", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        firstName,
-        lastName,
-        username: userData?.username || "",
-        email: userData?.email || user.email,
-        guess
-      })
-    });
+        await guessRef.set({
+          uid: user.uid,
+          firstName,
+          lastName,
+          username: userData?.username || "",
+          email: userData?.email || user.email,
+          guess,
+          correct: isCorrect,
+          date: today,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
 
-    msg.textContent = "Guess submitted successfully!";
+        // Send to Google Sheets (optional)
+        await fetch("https://script.google.com/macros/s/AKfycbxxUjuotRFXsDUpBnaxqQak_S6W1cMXeD85IXlRia9_Wq0KNPIEDY0GXx6RAUGkYite/exec", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            firstName,
+            lastName,
+            username: userData?.username || "",
+            email: userData?.email || user.email,
+            guess,
+            correct: isCorrect
+          })
+        });
 
-    // Clear the form
-    document.getElementById("firstNameGuess").value = "";
-    document.getElementById("lastNameGuess").value = "";
-    document.getElementById("guess").value = "";
+        msg.textContent = "Guess submitted successfully!";
 
-  } catch (error) {
-    console.error("Error submitting guess:", error);
-    msg.textContent = "An error occurred. Please try again.";
-  }
-}
-        })
-      });
+        // Clear form
+        document.getElementById("firstNameGuess").value = "";
+        document.getElementById("lastNameGuess").value = "";
+        document.getElementById("guess").value = "";
 
-      msg.textContent = "Guess submitted successfully!";
-      document.getElementById("firstNameGuess").value = "";
-      document.getElementById("lastNameGuess").value = "";
-      document.getElementById("guess").value = "";
+      } catch (error) {
+        console.error("Error submitting guess:", error);
+        msg.textContent = "An error occurred. Please try again.";
+      }
     }
   </script>
 </body>
