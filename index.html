@@ -271,20 +271,6 @@
           timestamp: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        // Send to Google Sheets (optional)
-        await fetch("https://script.google.com/macros/s/AKfycbxxUjuotRFXsDUpBnaxqQak_S6W1cMXeD85IXlRia9_Wq0KNPIEDY0GXx6RAUGkYite/exec", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            firstName,
-            lastName,
-            username: userData?.username || "",
-            email: userData?.email || user.email,
-            guess,
-            correct: isCorrect
-          })
-        });
-
         msg.textContent = "Guess submitted successfully!";
 
         // Clear form
