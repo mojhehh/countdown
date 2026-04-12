@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Casino Royale 2 - Coming Soon</title>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at top, #1a1a1a, #000);
+      color: #fff;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      flex-direction: column;
+    }
+
+    h1 {
+      color: gold;
+      font-size: 3em;
+      margin-bottom: 10px;
+    }
+
+    .countdown {
+      font-size: 2em;
+      margin: 20px 0;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.05);
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 0 20px rgba(255,215,0,0.4);
+      width: 90%;
+      max-width: 420px;
+      margin-top: 20px;
+    }
+
+    input, select, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      border-radius: 8px;
+      border: none;
+      font-size: 1em;
+    }
+
+    button {
+      background: gold;
+      color: black;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #ffd700;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .message {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎰 Casino Royale 2 🎰</h1>
+  <p>Launching Soon!</p>
+  <div class="countdown" id="countdown"></div>
+
+  <!-- Authentication Card -->
+  <div class="card" id="authCard">
+    <h2>Create or Log Into Your Account</h2>
+    <input type="text" id="firstName" placeholder="First Name">
+    <input type="text" id="lastName" placeholder="Last Name">
+    <input type="email" id="email" placeholder="Email">
+    <input type="password" id="password" placeholder="Password">
+    <button onclick="signUp()">Sign Up</button>
+    <button onclick="login()">Login</button>
+    <div class="message" id="authMessage"></div>
+  </div>
+
+  <!-- Guessing Game -->
+  <div class="card hidden" id="gameCard">
+    <h2>Guess My Haircut</h2>
+    <p>One guess per day. Correct guesses enter a raffle!</p>
+
+    <select id="guess">
+      <option value="">Select your guess</option>
+      <option value="Low Taper Fade">Low Taper Fade</option>
+      <option value="Mid Taper Fade">Mid Taper Fade</option>
+      <option value="Blowout Taper Textured Fringe">Blowout Taper Textured Fringe</option>
+      <option value="Curly Undercut">Curly Undercut</option>
+      <option value="Textured Crop">Textured Crop</option>
+    </select>
+
+    <button onclick="submitGuess()">Submit Guess</button>
+    <button onclick="logout()">Logout</button>
+    <div class="message" id="gameMessage"></div>
+  </div>
+
+  <script>
+    // 🔹 Replace with your Firebase configuration
+    const firebaseConfig = {
+    apiKey: "AIzaSyBHKfcbCdk78-PCm5ry_qHeyWhDVrm9sM8",
+  authDomain: "casino-royale-2.firebaseapp.com",
+  projectId: "casino-royale-2",
+
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // 🔹 Countdown to Next Sunday at 12 PM
+    function getNextSundayNoon() {
+      const now = new Date();
+      const nextSunday = new Date(now);
+      nextSunday.setDate(now.getDate() + (7 - now.getDay()) % 7);
+      nextSunday.setHours(12, 0, 0, 0);
+
+      if (now.getDay() === 0 && now.getHours() >= 12) {
+        nextSunday.setDate(nextSunday.getDate() + 7);
+      }
+      return nextSunday;
+    }
+
+    const launchDate = getNextSundayNoon();
+
+    function updateCountdown() {
+      const diff = launchDate - new Date();
+      if (diff <= 0) {
+        document.getElementById("countdown").innerHTML = "🎉 Now Live!";
+        return;
+      }
+
+      const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+      const m = Math.floor((diff / (1000 * 60)) % 60);
+      const s = Math.floor((diff / 1000) % 60);
+
+      document.getElementById("countdown").innerHTML =
+        `${d}d ${h}h ${m}m ${s}s`;
+    }
+
+    setInterval(updateCountdown, 1000);
+    updateCountdown();
+
+    // 🔹 Authentication
+    function signUp() {
+      const firstName = document.getElementById("firstName").value.trim();
+      const lastName = document.getElementById("lastName").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const msg = document.getElementById("authMessage");
+
+      if (!firstName || !lastName || !email || !password) {
+        msg.textContent = "Please fill in all fields.";
+        return;
+      }
+
+      auth.createUserWithEmailAndPassword(email, password)
+        .then((cred) => {
+          return db.collection("users").doc(cred.user.uid).set({
+            firstName,
+            lastName,
+            email
+          });
+        })
+        .catch(err => msg.textContent = err.message);
+    }
+
+    function login() {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const msg = document.getElementById("authMessage");
+
+      auth.signInWithEmailAndPassword(email, password)
+        .catch(err => msg.textContent = err.message);
+    }
+
+    function logout() {
+      auth.signOut();
+    }
+
+    // 🔹 Toggle UI Based on Auth State
+    auth.onAuthStateChanged(user => {
+      document.getElementById("authCard").classList.toggle("hidden", !!user);
+      document.getElementById("gameCard").classList.toggle("hidden", !user);
+    });
+
+    // 🔹 Submit Guess (One Per Day)
+    async function submitGuess() {
+      const user = auth.currentUser;
+      const guess = document.getElementById("guess").value;
+      const msg = document.getElementById("gameMessage");
+
+      if (!guess) {
+        msg.textContent = "Please select a guess.";
+        return;
+      }
+
+      const userDoc = await db.collection("users").doc(user.uid).get();
+      const userData = userDoc.data();
+
+      const today = new Date().toDateString();
+      const guessRef = db.collection("guesses").doc(user.uid);
+
+      const existing = await guessRef.get();
+      if (existing.exists && existing.data().date === today) {
+        msg.textContent = "You have already guessed today.";
+        return;
+      }
+
+      await guessRef.set({ guess, date: today });
+
+      // Send to Google Sheets
+      await fetch("https://script.google.com/macros/s/AKfycbxxUjuotRFXsDUpBnaxqQak_S6W1cMXeD85IXlRia9_Wq0KNPIEDY0GXx6RAUGkYite/exec", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          email: userData.email,
+          guess: guess
+        })
+      });
+
+      msg.textContent = "Guess submitted successfully!";
+    }
+  </script>
+</body>
+</html>
