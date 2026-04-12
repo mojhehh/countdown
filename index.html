@@ -202,42 +202,74 @@
     });
 
     // Submit Guess (One Per Day)
-    async function submitGuess() {
-      const user = auth.currentUser;
-      const guess = document.getElementById("guess").value;
-      const firstName = document.getElementById("firstNameGuess").value.trim();
-      const lastName = document.getElementById("lastNameGuess").value.trim();
-      const msg = document.getElementById("gameMessage");
+   async function submitGuess() {
+  const user = auth.currentUser;
+  const guess = document.getElementById("guess").value;
+  const firstName = document.getElementById("firstNameGuess").value.trim();
+  const lastName = document.getElementById("lastNameGuess").value.trim();
+  const msg = document.getElementById("gameMessage");
 
-      if (!firstName || !lastName || !guess) {
-        msg.textContent = "Please fill in all fields.";
-        return;
-      }
+  if (!user) {
+    msg.textContent = "You must be logged in to submit a guess.";
+    return;
+  }
 
-      const userDoc = await db.collection("users").doc(user.uid).get();
-      const userData = userDoc.data();
+  if (!firstName || !lastName || !guess) {
+    msg.textContent = "Please fill in all fields.";
+    return;
+  }
 
-      const today = new Date().toDateString();
-      const guessRef = db.collection("guesses").doc(user.uid);
+  try {
+    // Retrieve username and email from Firestore
+    const userDoc = await db.collection("users").doc(user.uid).get();
+    const userData = userDoc.data();
 
-      const existing = await guessRef.get();
-      if (existing.exists && existing.data().date === today) {
-        msg.textContent = "You have already guessed today.";
-        return;
-      }
+    const today = new Date().toDateString();
+    const guessRef = db.collection("guesses").doc(user.uid);
 
-      await guessRef.set({ guess, date: today });
+    // Check if the user has already guessed today
+    const existing = await guessRef.get();
+    if (existing.exists && existing.data().date === today) {
+      msg.textContent = "You have already guessed today.";
+      return;
+    }
 
-      // Send to Google Sheets
-      await fetch("https://script.google.com/macros/s/AKfycbxxUjuotRFXsDUpBnaxqQak_S6W1cMXeD85IXlRia9_Wq0KNPIEDY0GXx6RAUGkYite/exec", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          firstName: firstName,
-          lastName: lastName,
-          email: userData.email,
-          username: userData.username,
-          guess: guess
+    // Save the guess along with identification details
+    await guessRef.set({
+      firstName: firstName,
+      lastName: lastName,
+      username: userData?.username || "",
+      email: userData?.email || user.email,
+      guess: guess,
+      date: today,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Optional: Send to Google Sheets
+    await fetch("https://script.google.com/macros/s/AKfycbxxUjuotRFXsDUpBnaxqQak_S6W1cMXeD85IXlRia9_Wq0KNPIEDY0GXx6RAUGkYite/exec", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        firstName,
+        lastName,
+        username: userData?.username || "",
+        email: userData?.email || user.email,
+        guess
+      })
+    });
+
+    msg.textContent = "Guess submitted successfully!";
+
+    // Clear the form
+    document.getElementById("firstNameGuess").value = "";
+    document.getElementById("lastNameGuess").value = "";
+    document.getElementById("guess").value = "";
+
+  } catch (error) {
+    console.error("Error submitting guess:", error);
+    msg.textContent = "An error occurred. Please try again.";
+  }
+}
         })
       });
 
