@@ -83,8 +83,7 @@
   <!-- Authentication Card -->
   <div class="card" id="authCard">
     <h2>Create or Log Into Your Account</h2>
-    <input type="text" id="firstName" placeholder="First Name">
-    <input type="text" id="lastName" placeholder="Last Name">
+    <input type="text" id="username" placeholder="Username">
     <input type="email" id="email" placeholder="Email">
     <input type="password" id="password" placeholder="Password">
     <button onclick="signUp()">Sign Up</button>
@@ -94,8 +93,12 @@
 
   <!-- Guessing Game -->
   <div class="card hidden" id="gameCard">
-    <h2>Guess My Haircut</h2>
-    <p>One guess per day. Correct guesses enter a raffle!</p>
+    <h2>Guess Andrew's Haircut</h2>
+    <p>One guess per day. Correct guesses get a chance to win!</p>
+
+    <!-- First and Last Name collected at guess time -->
+    <input type="text" id="firstNameGuess" placeholder="First Name">
+    <input type="text" id="lastNameGuess" placeholder="Last Name">
 
     <select id="guess">
       <option value="">Select your guess</option>
@@ -112,19 +115,18 @@
   </div>
 
   <script>
-    // 🔹 Replace with your Firebase configuration
+    // Firebase configuration
     const firebaseConfig = {
-    apiKey: "AIzaSyBHKfcbCdk78-PCm5ry_qHeyWhDVrm9sM8",
-  authDomain: "casino-royale-2.firebaseapp.com",
-  projectId: "casino-royale-2",
-
+      apiKey: "YOUR_API_KEY",
+      authDomain: "casino-royale-2.firebaseapp.com",
+      projectId: "casino-royale-2",
     };
 
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // 🔹 Countdown to Next Sunday at 12 PM
+    // Countdown to Next Sunday at 12 PM
     function getNextSundayNoon() {
       const now = new Date();
       const nextSunday = new Date(now);
@@ -158,15 +160,14 @@
     setInterval(updateCountdown, 1000);
     updateCountdown();
 
-    // 🔹 Authentication
+    // Authentication (Username + Email + Password)
     function signUp() {
-      const firstName = document.getElementById("firstName").value.trim();
-      const lastName = document.getElementById("lastName").value.trim();
+      const username = document.getElementById("username").value.trim();
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value;
       const msg = document.getElementById("authMessage");
 
-      if (!firstName || !lastName || !email || !password) {
+      if (!username || !email || !password) {
         msg.textContent = "Please fill in all fields.";
         return;
       }
@@ -174,9 +175,8 @@
       auth.createUserWithEmailAndPassword(email, password)
         .then((cred) => {
           return db.collection("users").doc(cred.user.uid).set({
-            firstName,
-            lastName,
-            email
+            username: username,
+            email: email
           });
         })
         .catch(err => msg.textContent = err.message);
@@ -195,20 +195,22 @@
       auth.signOut();
     }
 
-    // 🔹 Toggle UI Based on Auth State
+    // Toggle UI Based on Auth State
     auth.onAuthStateChanged(user => {
       document.getElementById("authCard").classList.toggle("hidden", !!user);
       document.getElementById("gameCard").classList.toggle("hidden", !user);
     });
 
-    // 🔹 Submit Guess (One Per Day)
+    // Submit Guess (One Per Day)
     async function submitGuess() {
       const user = auth.currentUser;
       const guess = document.getElementById("guess").value;
+      const firstName = document.getElementById("firstNameGuess").value.trim();
+      const lastName = document.getElementById("lastNameGuess").value.trim();
       const msg = document.getElementById("gameMessage");
 
-      if (!guess) {
-        msg.textContent = "Please select a guess.";
+      if (!firstName || !lastName || !guess) {
+        msg.textContent = "Please fill in all fields.";
         return;
       }
 
@@ -231,14 +233,18 @@
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          firstName: userData.firstName,
-          lastName: userData.lastName,
+          firstName: firstName,
+          lastName: lastName,
           email: userData.email,
+          username: userData.username,
           guess: guess
         })
       });
 
       msg.textContent = "Guess submitted successfully!";
+      document.getElementById("firstNameGuess").value = "";
+      document.getElementById("lastNameGuess").value = "";
+      document.getElementById("guess").value = "";
     }
   </script>
 </body>
